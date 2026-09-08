@@ -92,7 +92,9 @@ def get_model_metrics() -> dict:
 
 
 def _predict_with_confidence(model, vector):
-    """Returns (predicted_label, confidence_probability)."""
+    if not hasattr(model, "multi_class"):
+        model.multi_class = "auto"
+
     proba = model.predict_proba(vector)[0]
     idx = int(np.argmax(proba))
     label = model.classes_[idx]
