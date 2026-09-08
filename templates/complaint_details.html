@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Complaint {{ ticket_id }} — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Ticket {{ ticket_id }}</h1>
+    <p class="subtitle">Full AI analysis and current resolution status.</p>
+  </div>
+  <a href="#" onclick="history.back(); return false;" class="btn btn-outline btn-sm">← Back</a>
+</div>
+
+<div id="detailContent"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth()) { /* redirect handled */ }
+
+const TICKET_ID = {{ ticket_id | tojson }};
+const currentUser = API.getUser();
+
+function adminControlsHtml(c) {
+  if (!currentUser || currentUser.role !== "admin") return "";
+  return `
+    <div class="card mt-16">
+      <h3>Admin actions</h3>
+      <div class="form-group">
+        <label for="statusSelect">Update status</label>
+        <select id="statusSelect">
+          ${["Pending", "In Progress", "Resolved", "Rejected"].map(s => `<option value="${s}" ${s === c.status ? "selected" : ""}>${s}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="deptInput">Assign department</label>
+        <input type="text" id="deptInput" value="${escapeHtml(c.department)}" maxlength="60">
+      </div>
+      <div class="form-group">
+        <label for="remarkInput">Admin remark</label>
+        <textarea id="remarkInput" maxlength="1000" placeholder="Add a note visible to the student...">${escapeHtml(c.admin_remark || "")}</textarea>
+      </div>
+      <button class="btn btn-primary" id="saveAdminBtn">Save changes</button>
+    </div>
+  `;
+}
+
+function render(c) {
+  const content = document.getElementById("detailContent");
+  content.innerHTML = `
+    <div class="two-col">
+      <div>
+        <div class="card">
+          <div class="flex-between">
+            <h3>Complaint text</h3>
+            <span class="badge ${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span>
+          </div>
+          <p style="margin-top:10px; color:var(--slate-900);">${escapeHtml(c.complaint_text)}</p>
+          ${c.is_duplicate ? `<div class="duplicate-alert">⚠️ Flagged as possibly similar to ticket ${escapeHtml(c.duplicate_of || "another complaint")}.</div>` : ""}
+        </div>
+
+        <div class="card mt-16">
+          <h3>AI analysis</h3>
+          <div class="analysis-grid">
+            <div class="analysis-item"><div class="k">Category</div><div class="v">${escapeHtml(c.category)}</div></div>
+            <div class="analysis-item"><div class="k">Priority</div><div class="v"><span class="badge ${priorityBadgeClass(c.priority)}">${escapeHtml(c.priority)}</span></div></div>
+            <div class="analysis-item"><div class="k">Department</div><div class="v">${escapeHtml(c.department)}</div></div>
+            <div class="analysis-item"><div class="k">Sentiment</div><div class="v"><span class="badge ${sentimentBadgeClass(c.sentiment)}">${escapeHtml(c.sentiment)}</span></div></div>
+            <div class="analysis-item"><div class="k">AI confidence</div><div class="v">${Math.round(c.confidence * 100)}%</div></div>
+          </div>
+        </div>
+
+        ${c.admin_remark ? `<div class="card mt-16"><h3>Admin remark</h3><p>${escapeHtml(c.admin_remark)}</p></div>` : ""}
+
+        ${adminControlsHtml(c)}
+
+        ${currentUser && currentUser.role === "student" && c.status === "Resolved" ? `
+          <div class="card mt-16">
+            <h3>How was the resolution?</h3>
+            <p class="text-muted">Your feedback helps us improve the helpdesk.</p>
+            <a href="/feedback/${encodeURIComponent(c.ticket_id)}" class="btn btn-brass mt-8">Leave feedback</a>
+          </div>` : ""}
+      </div>
+      <div>
+        <div class="card">
+          <h3>Ticket info</h3>
+          <p><strong>Ticket ID:</strong> ${escapeHtml(c.ticket_id)}</p>
+          <p><strong>Submitted:</strong> ${formatDate(c.created_at)}</p>
+          <p><strong>Last updated:</strong> ${formatDate(c.updated_at)}</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const saveBtn = document.getElementById("saveAdminBtn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Saving...";
+      try {
+        const newStatus = document.getElementById("statusSelect").value;
+        const newDept = document.getElementById("deptInput").value.trim();
+        const newRemark = document.getElementById("remarkInput").value.trim();
+
+        if (newStatus !== c.status) {
+          await API.put(`/api/admin/complaints/${encodeURIComponent(c.ticket_id)}/status`, { status: newStatus });
+        }
+        if (newDept !== c.department) {
+          await API.put(`/api/admin/complaints/${encodeURIComponent(c.ticket_id)}/department`, { department: newDept });
+        }
+        if (newRemark !== (c.admin_remark || "")) {
+          await API.put(`/api/admin/complaints/${encodeURIComponent(c.ticket_id)}/remark`, { admin_remark: newRemark });
+        }
+        showToast("Changes saved.", "success");
+        loadDetail();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save changes";
+      }
+    });
+  }
+}
+
+async function loadDetail() {
+  try {
+    const endpoint = (currentUser && currentUser.role === "admin")
+      ? `/api/admin/complaints/${encodeURIComponent(TICKET_ID)}`
+      : `/api/complaints/ticket/${encodeURIComponent(TICKET_ID)}`;
+    const c = await API.get(endpoint);
+    render(c);
+  } catch (err) {
+    document.getElementById("detailContent").innerHTML = `<div class="card empty-state"><span class="icon">🚫</span>${escapeHtml(err.message)}</div>`;
+  }
+}
+
+loadDetail();
+</script>
+{% endblock %}

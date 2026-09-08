@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}AI Campus Helpdesk — Home{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Complaints handled by AI, resolved by people.</h1>
+  <p>Submit any campus issue and let the system classify it, predict its priority, route it to the right department, and track it end to end — no manual triage needed.</p>
+  <div class="hero-actions">
+    <a href="/register" class="btn btn-brass">Get started</a>
+    <a href="/login" class="btn btn-outline" style="border-color:rgba(255,255,255,0.4); color:#fff;">Log in</a>
+  </div>
+</section>
+
+<div class="section">
+  <div class="section-head">
+    <div>
+      <h2>How the AI pipeline works</h2>
+      <p class="subtitle">Every complaint runs through five NLP models before a human ever sees it.</p>
+    </div>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="icon">🏷️</span>
+      <h3>Classification</h3>
+      <p>TF-IDF + Logistic Regression sorts each complaint into one of 12 departments — from IT/Network to Security.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">⚡</span>
+      <h3>Priority prediction</h3>
+      <p>Severity language in your text (hazards, outages, safety risks) is used to predict Low, Medium, High or Critical priority.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">🙂</span>
+      <h3>Sentiment analysis</h3>
+      <p>Detects whether a complaint is written in frustration, neutrally, or as positive feedback.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">🔎</span>
+      <h3>Duplicate detection</h3>
+      <p>Cosine similarity against every open ticket flags near-identical complaints before they clutter the queue.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">🎯</span>
+      <h3>Confidence score</h3>
+      <p>Every ticket ships with an AI confidence score so admins know how much to trust the automated tags.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">📊</span>
+      <h3>Live tracking</h3>
+      <p>Students track status by ticket ID; admins get a full dashboard with search, filters and analytics.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section two-col">
+  <div class="card">
+    <h3>For students</h3>
+    <p>Register with your college email, describe your issue in plain language, and get an instant AI analysis plus a unique ticket ID — before you even submit.</p>
+    <a href="/register" class="btn btn-primary mt-8">Create student account</a>
+  </div>
+  <div class="card">
+    <h3>For administrators</h3>
+    <p>Search and filter every complaint by category, priority or status, assign departments, add remarks, and monitor resolution analytics in real time.</p>
+    <a href="/login" class="btn btn-outline mt-8">Admin login</a>
+  </div>
+</div>
+{% endblock %}

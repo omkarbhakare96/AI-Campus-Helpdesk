@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1 id="welcomeHeading">Your dashboard</h1>
+    <p class="subtitle">A quick overview of your complaints and their status.</p>
+  </div>
+  <a href="/submit-complaint" class="btn btn-brass">+ Submit a complaint</a>
+</div>
+
+<div class="stat-grid" id="statGrid">
+  <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total complaints</div></div>
+  <div class="stat-card accent-amber"><div class="stat-value">—</div><div class="stat-label">Pending</div></div>
+  <div class="stat-card accent-brass"><div class="stat-value">—</div><div class="stat-label">In progress</div></div>
+  <div class="stat-card accent-teal"><div class="stat-value">—</div><div class="stat-label">Resolved</div></div>
+</div>
+
+<div class="section mt-24">
+  <div class="section-head">
+    <h2>Recent complaints</h2>
+    <a href="/my-complaints" class="btn btn-outline btn-sm">View all</a>
+  </div>
+  <div id="recentList"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth("student")) { /* redirect handled */ }
+
+async function loadDashboard() {
+  const user = API.getUser();
+  document.getElementById("welcomeHeading").textContent = "Welcome, " + user.name;
+
+  try {
+    const complaints = await API.get("/api/complaints/mine");
+
+    const total = complaints.length;
+    const pending = complaints.filter(c => c.status === "Pending").length;
+    const inProgress = complaints.filter(c => c.status === "In Progress").length;
+    const resolved = complaints.filter(c => c.status === "Resolved").length;
+
+    const grid = document.getElementById("statGrid");
+    grid.innerHTML = `
+      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total complaints</div></div>
+      <div class="stat-card accent-amber"><div class="stat-value">${pending}</div><div class="stat-label">Pending</div></div>
+      <div class="stat-card accent-brass"><div class="stat-value">${inProgress}</div><div class="stat-label">In progress</div></div>
+      <div class="stat-card accent-teal"><div class="stat-value">${resolved}</div><div class="stat-label">Resolved</div></div>
+    `;
+
+    const recentList = document.getElementById("recentList");
+    const recent = complaints.slice(0, 5);
+    if (recent.length === 0) {
+      recentList.innerHTML = `<div class="card empty-state"><span class="icon">📭</span>No complaints yet. <a href="/submit-complaint">Submit your first one</a>.</div>`;
+      return;
+    }
+
+    recentList.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Ticket ID</th><th>Category</th><th>Priority</th><th>Status</th><th>Submitted</th></tr></thead>
+      <tbody>
+        ${recent.map(c => `
+          <tr>
+            <td><a class="ticket-link" href="/complaint/${encodeURIComponent(c.ticket_id)}">${escapeHtml(c.ticket_id)}</a></td>
+            <td>${escapeHtml(c.category)}</td>
+            <td><span class="badge ${priorityBadgeClass(c.priority)}">${escapeHtml(c.priority)}</span></td>
+            <td><span class="badge ${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
+            <td>${formatDate(c.created_at)}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table></div>`;
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+loadDashboard();
+</script>
+{% endblock %}

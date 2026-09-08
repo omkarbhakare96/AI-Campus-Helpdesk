@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Admin dashboard</h1>
+    <p class="subtitle">All complaints across campus, with AI-assisted triage.</p>
+  </div>
+  <a href="/admin/analytics" class="btn btn-outline">View analytics</a>
+</div>
+
+<div class="stat-grid" id="statGrid">
+  <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total</div></div>
+  <div class="stat-card accent-amber"><div class="stat-value">—</div><div class="stat-label">Pending</div></div>
+  <div class="stat-card accent-brass"><div class="stat-value">—</div><div class="stat-label">In progress</div></div>
+  <div class="stat-card accent-teal"><div class="stat-value">—</div><div class="stat-label">Resolved</div></div>
+  <div class="stat-card accent-rose"><div class="stat-value">—</div><div class="stat-label">High priority</div></div>
+  <div class="stat-card accent-rose"><div class="stat-value">—</div><div class="stat-label">Critical</div></div>
+</div>
+
+<div class="section mt-24">
+  <div class="filters-bar">
+    <div class="form-group">
+      <label for="searchInput">Search (ticket ID or text)</label>
+      <input type="text" id="searchInput" placeholder="e.g. TCK-2026-... or 'wifi'">
+    </div>
+    <div class="form-group">
+      <label for="categoryFilter">Category</label>
+      <select id="categoryFilter">
+        <option value="">All categories</option>
+        <option>IT/Network</option><option>Infrastructure</option><option>Laboratory</option>
+        <option>Library</option><option>Hostel</option><option>Transport</option>
+        <option>Electricity</option><option>Cleanliness</option><option>Examination</option>
+        <option>Administration</option><option>Security</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="priorityFilter">Priority</label>
+      <select id="priorityFilter">
+        <option value="">All priorities</option>
+        <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="statusFilterAdmin">Status</label>
+      <select id="statusFilterAdmin">
+        <option value="">All statuses</option>
+        <option>Pending</option><option>In Progress</option><option>Resolved</option><option>Rejected</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="applyFiltersBtn">Apply filters</button>
+  </div>
+
+  <div id="complaintsTable"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth("admin")) { /* redirect handled */ }
+
+async function loadStats() {
+  try {
+    const stats = await API.get("/api/admin/stats");
+    document.getElementById("statGrid").innerHTML = `
+      <div class="stat-card"><div class="stat-value">${stats.total}</div><div class="stat-label">Total</div></div>
+      <div class="stat-card accent-amber"><div class="stat-value">${stats.pending}</div><div class="stat-label">Pending</div></div>
+      <div class="stat-card accent-brass"><div class="stat-value">${stats.in_progress}</div><div class="stat-label">In progress</div></div>
+      <div class="stat-card accent-teal"><div class="stat-value">${stats.resolved}</div><div class="stat-label">Resolved</div></div>
+      <div class="stat-card accent-rose"><div class="stat-value">${stats.high_priority}</div><div class="stat-label">High priority</div></div>
+      <div class="stat-card accent-rose"><div class="stat-value">${stats.critical_priority}</div><div class="stat-label">Critical</div></div>
+    `;
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+async function loadComplaints() {
+  const params = new URLSearchParams();
+  const search = document.getElementById("searchInput").value.trim();
+  const category = document.getElementById("categoryFilter").value;
+  const priority = document.getElementById("priorityFilter").value;
+  const status = document.getElementById("statusFilterAdmin").value;
+  if (search) params.set("search", search);
+  if (category) params.set("category", category);
+  if (priority) params.set("priority", priority);
+  if (status) params.set("status", status);
+
+  try {
+    const complaints = await API.get("/api/admin/complaints?" + params.toString());
+    const container = document.getElementById("complaintsTable");
+
+    if (complaints.length === 0) {
+      container.innerHTML = `<div class="card empty-state"><span class="icon">📭</span>No complaints match these filters.</div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Ticket ID</th><th>Category</th><th>Priority</th><th>Sentiment</th><th>Status</th><th>Department</th><th>Submitted</th></tr></thead>
+      <tbody>
+        ${complaints.map(c => `
+          <tr>
+            <td><a class="ticket-link" href="/complaint/${encodeURIComponent(c.ticket_id)}">${escapeHtml(c.ticket_id)}</a>${c.is_duplicate ? ' <span class="badge badge-outline">Dup?</span>' : ''}</td>
+            <td>${escapeHtml(c.category)}</td>
+            <td><span class="badge ${priorityBadgeClass(c.priority)}">${escapeHtml(c.priority)}</span></td>
+            <td><span class="badge ${sentimentBadgeClass(c.sentiment)}">${escapeHtml(c.sentiment)}</span></td>
+            <td><span class="badge ${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
+            <td>${escapeHtml(c.department)}</td>
+            <td>${formatDate(c.created_at)}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table></div>`;
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+document.getElementById("applyFiltersBtn").addEventListener("click", loadComplaints);
+document.getElementById("searchInput").addEventListener("keydown", (e) => { if (e.key === "Enter") loadComplaints(); });
+
+loadStats();
+loadComplaints();
+</script>
+{% endblock %}

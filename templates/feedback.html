@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Feedback — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="card">
+    <h2>Rate your resolution</h2>
+    <p class="text-muted mt-8">Ticket: <strong>{{ ticket_id }}</strong></p>
+
+    <div id="feedbackFormWrap" class="mt-16">
+      <div class="form-group">
+        <label>Your rating</label>
+        <div class="star-rating" id="starRating">
+          <span data-value="1">★</span>
+          <span data-value="2">★</span>
+          <span data-value="3">★</span>
+          <span data-value="4">★</span>
+          <span data-value="5">★</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="comment">Comments (optional)</label>
+        <textarea id="comment" maxlength="1000" placeholder="Tell us more about your experience..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="submitFeedbackBtn">Submit feedback</button>
+    </div>
+
+    <div id="feedbackDone" style="display:none;" class="empty-state">
+      <span class="icon">✅</span>
+      <p>Thank you! Your feedback has been recorded.</p>
+      <a href="/my-complaints" class="btn btn-outline mt-8">Back to my complaints</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth("student")) { /* redirect handled */ }
+
+const TICKET_ID = {{ ticket_id | tojson }};
+let selectedRating = 0;
+
+const stars = document.querySelectorAll("#starRating span");
+stars.forEach(star => {
+  star.addEventListener("click", () => {
+    selectedRating = parseInt(star.dataset.value, 10);
+    stars.forEach(s => s.classList.toggle("active", parseInt(s.dataset.value, 10) <= selectedRating));
+  });
+});
+
+document.getElementById("submitFeedbackBtn").addEventListener("click", async () => {
+  if (selectedRating < 1) {
+    showToast("Please select a star rating.", "error");
+    return;
+  }
+  const comment = document.getElementById("comment").value.trim();
+  const btn = document.getElementById("submitFeedbackBtn");
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+  try {
+    await API.post(`/api/complaints/${encodeURIComponent(TICKET_ID)}/feedback`, { rating: selectedRating, comment });
+    document.getElementById("feedbackFormWrap").style.display = "none";
+    document.getElementById("feedbackDone").style.display = "block";
+  } catch (err) {
+    showToast(err.message, "error");
+    btn.disabled = false;
+    btn.textContent = "Submit feedback";
+  }
+});
+</script>
+{% endblock %}

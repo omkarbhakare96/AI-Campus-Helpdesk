@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}My Complaints — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>My complaints</h1>
+    <p class="subtitle">Every ticket you've submitted, with live AI analysis and status.</p>
+  </div>
+  <a href="/submit-complaint" class="btn btn-brass">+ Submit a complaint</a>
+</div>
+
+<div class="filters-bar">
+  <div class="form-group">
+    <label for="statusFilter">Filter by status</label>
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="Pending">Pending</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Resolved">Resolved</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+  </div>
+</div>
+
+<div id="complaintsList"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth("student")) { /* redirect handled */ }
+
+let allComplaints = [];
+
+function renderList() {
+  const filter = document.getElementById("statusFilter").value;
+  const filtered = filter ? allComplaints.filter(c => c.status === filter) : allComplaints;
+  const container = document.getElementById("complaintsList");
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="card empty-state"><span class="icon">📭</span>No complaints found for this filter.</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Ticket ID</th><th>Complaint</th><th>Category</th><th>Priority</th><th>Sentiment</th><th>Status</th><th>Submitted</th></tr></thead>
+    <tbody>
+      ${filtered.map(c => `
+        <tr>
+          <td><a class="ticket-link" href="/complaint/${encodeURIComponent(c.ticket_id)}">${escapeHtml(c.ticket_id)}</a>${c.is_duplicate ? ' <span class="badge badge-outline" title="Flagged as similar to another complaint">Duplicate?</span>' : ''}</td>
+          <td style="max-width:280px;">${escapeHtml(c.complaint_text.slice(0, 80))}${c.complaint_text.length > 80 ? "…" : ""}</td>
+          <td>${escapeHtml(c.category)}</td>
+          <td><span class="badge ${priorityBadgeClass(c.priority)}">${escapeHtml(c.priority)}</span></td>
+          <td><span class="badge ${sentimentBadgeClass(c.sentiment)}">${escapeHtml(c.sentiment)}</span></td>
+          <td><span class="badge ${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
+          <td>${formatDate(c.created_at)}</td>
+        </tr>`).join("")}
+    </tbody>
+  </table></div>`;
+}
+
+async function loadComplaints() {
+  try {
+    allComplaints = await API.get("/api/complaints/mine");
+    renderList();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+document.getElementById("statusFilter").addEventListener("change", renderList);
+loadComplaints();
+</script>
+{% endblock %}

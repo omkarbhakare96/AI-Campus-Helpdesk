@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Submit Complaint — AI Campus Helpdesk{% endblock %}
+{% block content %}
+<div class="two-col">
+  <div>
+    <h1>Submit a complaint</h1>
+    <p class="subtitle">Describe your issue clearly. Our AI will classify it, predict its priority and route it to the right department.</p>
+
+    <div class="card mt-16">
+      <form id="complaintForm">
+        <div class="form-group">
+          <label for="complaintText">Describe your complaint</label>
+          <textarea id="complaintText" name="complaintText" maxlength="3000" placeholder="e.g. The Wi-Fi in the boys hostel has not worked for three days and I cannot submit my assignments..." required></textarea>
+          <p class="form-hint"><span id="charCount">0</span>/3000 characters</p>
+        </div>
+        <div class="flex gap-12">
+          <button type="button" id="analyzeBtn" class="btn btn-outline">🔍 Analyze with AI</button>
+          <button type="submit" id="submitBtn" class="btn btn-primary" disabled>Submit complaint</button>
+        </div>
+      </form>
+
+      <div id="analysisResult" style="display:none;" class="analysis-box">
+        <h3>AI Analysis</h3>
+        <div class="analysis-grid">
+          <div class="analysis-item"><div class="k">Category</div><div class="v" id="resCategory">-</div></div>
+          <div class="analysis-item"><div class="k">Priority</div><div class="v" id="resPriority">-</div></div>
+          <div class="analysis-item"><div class="k">Department</div><div class="v" id="resDepartment">-</div></div>
+          <div class="analysis-item"><div class="k">Sentiment</div><div class="v" id="resSentiment">-</div></div>
+          <div class="analysis-item"><div class="k">AI confidence</div><div class="v" id="resConfidence">-</div></div>
+        </div>
+        <div id="duplicateAlert" style="display:none;" class="duplicate-alert"></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>Tips for a good complaint</h3>
+      <ul style="padding-left:18px; color:var(--slate-700); line-height:1.9;">
+        <li>Mention the exact location (room, hostel block, lab name).</li>
+        <li>Describe how long the issue has persisted.</li>
+        <li>Note any safety risk clearly — this affects priority.</li>
+        <li>Avoid submitting the same issue twice; the AI will flag duplicates.</li>
+      </ul>
+    </div>
+    <div class="card mt-16">
+      <h3>What happens next?</h3>
+      <p>Once submitted, you'll receive a unique ticket ID. Track its status anytime from "My Complaints" and leave feedback once it's resolved.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth("student")) { /* redirect handled */ }
+
+const textarea = document.getElementById("complaintText");
+const charCount = document.getElementById("charCount");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const submitBtn = document.getElementById("submitBtn");
+const analysisResult = document.getElementById("analysisResult");
+const duplicateAlert = document.getElementById("duplicateAlert");
+
+let lastAnalyzedText = null;
+
+textarea.addEventListener("input", () => {
+  charCount.textContent = textarea.value.length;
+  if (textarea.value !== lastAnalyzedText) {
+    submitBtn.disabled = true;
+    analysisResult.style.display = "none";
+  }
+});
+
+analyzeBtn.addEventListener("click", async () => {
+  const text = textarea.value.trim();
+  if (text.length < 5) {
+    showToast("Please describe your issue in more detail (at least 5 characters).", "error");
+    return;
+  }
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = "Analyzing...";
+  try {
+    const result = await API.post("/api/complaints/analyze", { complaint_text: text });
+    document.getElementById("resCategory").textContent = result.category;
+    document.getElementById("resPriority").textContent = result.priority;
+    document.getElementById("resDepartment").textContent = result.department;
+    document.getElementById("resSentiment").textContent = result.sentiment;
+    document.getElementById("resConfidence").textContent = Math.round(result.confidence * 100) + "%";
+
+    if (result.is_duplicate) {
+      duplicateAlert.style.display = "block";
+      duplicateAlert.textContent = `⚠️ This looks similar to an existing complaint (${result.duplicate_of || "an existing ticket"}, ${Math.round(result.similarity_score * 100)}% similar). You may still submit if this is a distinct issue.`;
+    } else {
+      duplicateAlert.style.display = "none";
+    }
+
+    analysisResult.style.display = "block";
+    lastAnalyzedText = text;
+    submitBtn.disabled = false;
+    showToast("Analysis complete.", "success");
+  } catch (err) {
+    showToast(err.message, "error");
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = "🔍 Analyze with AI";
+  }
+});
+
+document.getElementById("complaintForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = textarea.value.trim();
+  if (text !== lastAnalyzedText) {
+    showToast("Please analyze your complaint before submitting.", "error");
+    return;
+  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting...";
+  try {
+    const complaint = await API.post("/api/complaints", { complaint_text: text });
+    showToast("Complaint submitted! Ticket ID: " + complaint.ticket_id, "success");
+    setTimeout(() => {
+      window.location.href = "/complaint/" + encodeURIComponent(complaint.ticket_id);
+    }, 600);
+  } catch (err) {
+    showToast(err.message, "error");
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit complaint";
+  }
+});
+</script>
+{% endblock %}

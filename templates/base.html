@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}AI Campus Helpdesk{% endblock %}</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-container">
+    <a href="/" class="nav-brand">
+      <span class="nav-logo">🎓</span> AI Campus Helpdesk
+    </a>
+    <div class="nav-links" id="navLinks">
+      <!-- Populated dynamically by nav.js based on auth state -->
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+  </div>
+</nav>
+
+<main class="page-wrap">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <p>AI-Based Campus Helpdesk &mdash; Intelligent Complaint Classification, Priority Prediction &amp; Resolution Tracking System</p>
+</footer>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/nav.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
