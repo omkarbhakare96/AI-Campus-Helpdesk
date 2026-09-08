@@ -40,87 +40,308 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script>
-if (!requireAuth("admin")) { /* redirect handled */ }
 
-const PALETTE = ["#142544","#b8863b","#1f7a6c","#b8394a","#b3760a","#274582","#6b7385","#9c6f2e","#0e1a30","#cdd3de","#e2f4ef","#fbe6e9"];
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<script>
+if (!requireAuth("admin")) {
+  /* redirect handled */
+}
+
+const PALETTE = [
+  "#142544",
+  "#b8863b",
+  "#1f7a6c",
+  "#b8394a",
+  "#b3760a",
+  "#274582",
+  "#6b7385",
+  "#9c6f2e",
+  "#0e1a30",
+  "#cdd3de",
+  "#e2f4ef",
+  "#fbe6e9"
+];
 
 function renderMetricsTable(metrics) {
   const wrap = document.getElementById("metricsWrap");
+
   if (!metrics || Object.keys(metrics).length === 0) {
-    wrap.innerHTML = `<div class="card empty-state"><span class="icon">🤖</span>No metrics found. Run <code>python train_model.py</code> to generate them.</div>`;
+    wrap.innerHTML = `
+      <div class="card empty-state">
+        <span class="icon"></span>
+        No metrics found. Run
+        <code>python train_model.py</code>
+        to generate them.
+      </div>`;
     return;
   }
 
-  let html = `<div class="table-wrap"><table class="metric-table">
-    <thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1-score</th></tr></thead><tbody>`;
-  for (const [name, m] of Object.entries(metrics)) {
-    html += `<tr>
-      <td style="text-align:left; font-weight:700; text-transform:capitalize;">${escapeHtml(name)}</td>
-      <td>${(m.accuracy * 100).toFixed(2)}%</td>
-      <td>${(m.precision * 100).toFixed(2)}%</td>
-      <td>${(m.recall * 100).toFixed(2)}%</td>
-      <td>${(m.f1_score * 100).toFixed(2)}%</td>
-    </tr>`;
-  }
-  html += `</tbody></table></div>`;
+  let html = `
+    <div class="table-wrap">
+      <table class="metric-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Accuracy</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>F1-score</th>
+          </tr>
+        </thead>
+        <tbody>`;
 
   for (const [name, m] of Object.entries(metrics)) {
-    html += `<div class="card mt-16"><h3 style="text-transform:capitalize;">${escapeHtml(name)} — Confusion Matrix</h3>
-      <div class="table-wrap"><table><thead><tr><th></th>${m.labels.map(l => `<th>${escapeHtml(l)}</th>`).join("")}</tr></thead><tbody>
-      ${m.confusion_matrix.map((row, i) => `<tr><th>${escapeHtml(m.labels[i])}</th>${row.map(v => `<td>${v}</td>`).join("")}</tr>`).join("")}
-      </tbody></table></div></div>`;
+    html += `
+      <tr>
+        <td style="text-align:left; font-weight:700; text-transform:capitalize;">
+          ${escapeHtml(name)}
+        </td>
+        <td>${(m.accuracy * 100).toFixed(2)}%</td>
+        <td>${(m.precision * 100).toFixed(2)}%</td>
+        <td>${(m.recall * 100).toFixed(2)}%</td>
+        <td>${(m.f1_score * 100).toFixed(2)}%</td>
+      </tr>`;
   }
+
+  html += `
+        </tbody>
+      </table>
+    </div>`;
+
+  for (const [name, m] of Object.entries(metrics)) {
+    html += `
+      <div class="card mt-16">
+        <h3 style="text-transform:capitalize;">
+          ${escapeHtml(name)} — Confusion Matrix
+        </h3>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                ${m.labels.map(
+                  l => `<th>${escapeHtml(l)}</th>`
+                ).join("")}
+              </tr>
+            </thead>
+
+            <tbody>
+              ${m.confusion_matrix.map(
+                (row, i) => `
+                  <tr>
+                    <th>${escapeHtml(m.labels[i])}</th>
+                    ${row.map(v => `<td>${v}</td>`).join("")}
+                  </tr>`
+              ).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
   wrap.innerHTML = html;
 }
 
+
 async function loadAnalytics() {
+
   try {
+
+    /* Check Chart.js */
+    if (typeof Chart === "undefined") {
+      throw new Error(
+        "Chart.js could not be loaded. Please refresh the page."
+      );
+    }
+
     const data = await API.get("/api/admin/analytics");
 
-    new Chart(document.getElementById("categoryChart"), {
-      type: "bar",
-      data: {
-        labels: data.category_distribution.map(d => d.category),
-        datasets: [{ label: "Complaints", data: data.category_distribution.map(d => d.count), backgroundColor: PALETTE }],
-      },
-      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
-    });
 
-    new Chart(document.getElementById("priorityChart"), {
-      type: "doughnut",
-      data: {
-        labels: data.priority_distribution.map(d => d.priority),
-        datasets: [{ data: data.priority_distribution.map(d => d.count), backgroundColor: ["#1f7a6c","#b3760a","#b8531a","#b8394a"] }],
-      },
-    });
+    /* =========================
+       CATEGORY CHART
+       ========================= */
 
-    new Chart(document.getElementById("statusChart"), {
-      type: "pie",
-      data: {
-        labels: data.status_distribution.map(d => d.status),
-        datasets: [{ data: data.status_distribution.map(d => d.count), backgroundColor: PALETTE }],
-      },
-    });
+    new Chart(
+      document.getElementById("categoryChart"),
+      {
+        type: "bar",
 
-    new Chart(document.getElementById("sentimentChart"), {
-      type: "bar",
-      data: {
-        labels: data.sentiment_distribution.map(d => d.sentiment),
-        datasets: [{ label: "Complaints", data: data.sentiment_distribution.map(d => d.count), backgroundColor: ["#1f7a6c","#6b7385","#b8394a"] }],
-      },
-      options: { plugins: { legend: { display: false } }, indexAxis: 'y' },
-    });
+        data: {
+          labels: data.category_distribution.map(
+            d => d.category
+          ),
 
-    document.getElementById("avgRating").textContent = data.avg_feedback_rating > 0 ? `⭐ ${data.avg_feedback_rating} / 5` : "No feedback yet";
+          datasets: [
+            {
+              label: "Complaints",
+
+              data: data.category_distribution.map(
+                d => d.count
+              ),
+
+              backgroundColor: PALETTE
+            }
+          ]
+        },
+
+        options: {
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      }
+    );
+
+
+    /* =========================
+       PRIORITY CHART
+       ========================= */
+
+    new Chart(
+      document.getElementById("priorityChart"),
+      {
+        type: "doughnut",
+
+        data: {
+          labels: data.priority_distribution.map(
+            d => d.priority
+          ),
+
+          datasets: [
+            {
+              data: data.priority_distribution.map(
+                d => d.count
+              ),
+
+              backgroundColor: [
+                "#1f7a6c",
+                "#b3760a",
+                "#b8531a",
+                "#b8394a"
+              ]
+            }
+          ]
+        }
+      }
+    );
+
+
+    /* =========================
+       STATUS CHART
+       ========================= */
+
+    new Chart(
+      document.getElementById("statusChart"),
+      {
+        type: "pie",
+
+        data: {
+          labels: data.status_distribution.map(
+            d => d.status
+          ),
+
+          datasets: [
+            {
+              data: data.status_distribution.map(
+                d => d.count
+              ),
+
+              backgroundColor: PALETTE
+            }
+          ]
+        }
+      }
+    );
+
+
+    /* =========================
+       SENTIMENT CHART
+       ========================= */
+
+    new Chart(
+      document.getElementById("sentimentChart"),
+      {
+        type: "bar",
+
+        data: {
+          labels: data.sentiment_distribution.map(
+            d => d.sentiment
+          ),
+
+          datasets: [
+            {
+              label: "Complaints",
+
+              data: data.sentiment_distribution.map(
+                d => d.count
+              ),
+
+              backgroundColor: [
+                "#1f7a6c",
+                "#6b7385",
+                "#b8394a"
+              ]
+            }
+          ]
+        },
+
+        options: {
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+
+          indexAxis: "y"
+        }
+      }
+    );
+
+
+    /* =========================
+       AVERAGE RATING
+       ========================= */
+
+    document.getElementById("avgRating").textContent =
+      data.avg_feedback_rating > 0
+        ? ` ${data.avg_feedback_rating} / 5`
+        : "No feedback yet";
+
+
+    /* =========================
+       MODEL METRICS
+       ========================= */
 
     renderMetricsTable(data.model_metrics);
-  } catch (err) {
-    showToast(err.message, "error");
+
+  }
+
+  catch (err) {
+
+    console.error("Analytics Error:", err);
+
+    showToast(
+      err.message || "Unable to load analytics.",
+      "error"
+    );
   }
 }
 
+
+/* Load analytics */
 loadAnalytics();
+
 </script>
+
 {% endblock %}
